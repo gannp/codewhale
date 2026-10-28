@@ -1,0 +1,32 @@
+name: Local reasoning candidate verification
+on:
+  push:
+    branches: [verify/local-reasoning-ci-20261028]
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        candidate: [fix/upstream-local-model-reasoning, fix/local-model-reasoning]
+    env:
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: gannp/codewhale
+          ref: ${{ matrix.candidate }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.97.1
+      - name: Prepare standard build dependencies
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libdbus-1-dev
+      - name: Run exact config regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          cargo test -p codewhale-config --lib --locked local_reasoning::tests -- --test-threads=1 2>&1 | tee validation.log
+          grep -E 'test result: ok\. [1-9][0-9]* passed; 0 failed' validation.log
